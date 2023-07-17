@@ -1,14 +1,12 @@
-## 14 Modules
+There are 14 Modules, 14 tasks in 11 Weeks
 
-* 11 Weeks from Monday 10 July to Friday 29 September plus mid break from Monday 14 August to Sunday 20 August
-* Each week for one module?
-  ![](pics/unit_modules.png)
+* 11 Weeks
 
-## Assessment Task Deadlines
-
-One assessment task associated with each module.
-
-1. Write a 2-3 page reflection on what you have learned.
-2. Collect and document all the activities that you have done as part of completing the module.
-
-![](pics/assessment_tasks_ddl.png)
+  + Monday 10 July - Friday 29 September
+  + mid break: Monday 14 August - Sunday 20 August
+    ![](pics/unit_modules.png)
+  + One assessment task associated with each module
+    + Write a 2-3 page reflection on what you have learned.
+    + Collect and document all the activities that you have done as part of completing the module.
+    + Deadlines
+      ![](pics/assessment_tasks_ddl.png)
