@@ -1,2 +1,2 @@
-temp/confused_content.ipynb
-temp/module6.ipynb
+# ignore ALL files in ANY directory named temp
+_temp/
