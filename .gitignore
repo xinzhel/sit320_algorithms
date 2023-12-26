@@ -1,4 +1,4 @@
 # ignore ALL files in ANY directory named temp
-# _temp/
-# module4/solution.py
-# module5,6/solution.py
+_temp/
+module4/solution.py
+module5,6/solution.py

@@ -1,0 +1,338 @@
+class TicTacToeMCTSAlgorithm:
+    def __init__(self,  num_simulations):
+        self.board = None
+        self.num_simulations = num_simulations
+
+    def create_child_node(self, parent_node):
+        available_moves = parent_node.board.available_moves()
+        if not available_moves:
+            return None  # No available moves, return None
+
+        # Choose a random available move
+        selected_move = random.choice(available_moves)
+
+        # Create a new board by copying the parent's board and making the selected move
+        new_board = parent_node.board.copy()
+        new_board.insert_letter(parent_node.board.current_player(), selected_move)
+
+        # Create a new child node with the new board and return it
+        child_node = TicTacToeNode(new_board, parent=parent_node, move=selected_move)
+
+        return child_node
+
+    def select(self, node):
+        while not node.is_terminal():
+            if not node.is_fully_expanded:  # Use as a boolean attribute, not callable
+                return self.expand(node)
+            else:
+                node = self.get_best_move(node, exploration_constant=1.8)
+
+        return node
+
+    def expand(self, node):
+        while not node.is_terminal():
+            if not node.is_fully_expanded:
+                child_node = self.create_child_node(node)
+                return child_node
+            else:
+                node = self.get_best_move(node, exploration_constant=1.0)
+
+        return node
+
+
+    def rollout(self, board):
+        while not board.check_for_win('X') and not board.check_for_win('O') and not board.check_draw():
+            available_moves = board.available_moves()
+            action = random.choice(available_moves)
+            board.insert_letter(board.current_player(), action)
+
+        #Here we check for reward
+        if board.check_for_win('X'):
+            return 1 if board.current_player() == 'X' else -1
+        elif board.check_for_win('O'):
+            return 1 if board.current_player() == 'O' else -1
+        return 0
+
+
+    def backpropagate(self, node, score):
+        while node: node.visits, node.score, node = node.visits + 1, node.score + score, node.parent
+
+
+    def get_best_move(self, node, exploration_constant):
+        best_score = float('-inf')
+        best_moves = []
+
+        for child_node in node.children:
+            if child_node.board.current_player() == 'X':
+                current_player = 1
+            elif child_node.board.current_player() == 'O':
+                current_player = -1
+
+            move_score = current_player * child_node.score / child_node.visits + exploration_constant * math.sqrt(
+                math.log(node.visits / child_node.visits + 1e-10))
+            
+            if move_score == best_score:
+                best_moves.append(child_node)
+
+
+            if move_score > best_score: 
+                best_moves = [child_node]
+                best_score = move_score
+                
+
+
+        if not best_moves:
+            return None  #im returning none when there is no best move
+
+        return random.choice(best_moves).move
+
+    def choose_action(self, state, available_moves):
+        size = int(math.sqrt(len(state)))
+        slef.board = TicTacToeBoard(size)
+        self.board.board = {i + 1: state[i] for i in range(len(state))}
+        root_node = TicTacToeNode(self.board)
+
+
+        current_player = 'X'
+        for _ in range(self.num_simulations):
+            selected_node = self.select(root_node)
+            rollout_result = self.rollout(selected_node.board)
+            self.backpropagate(selected_node, rollout_result)
+            current_player = self.get_next_player(current_player)  # Switch players
+
+        best_child = self.get_best_move(root_node, exploration_constant=0.0)
+
+        if best_child is None:
+            if not available_moves:
+                print("No available moves found.")
+            else:
+                print("Available moves:", available_moves)
+            return random.choice(available_moves) if available_moves else None
+
+        return best_child.move
+
+    def get_next_player(self, current_player):
+        return 'O' if current_player == 'X' else 'X'
+
+class QLearningAgent: # If we are given a state, then Qlearning algorithm is used in order to get the outcome that is the best, that is, that has the best reward.
+    def __init__(self, gradient_effect, epsilon, relative_reward_rating, board):
+        self.Q = {}
+        self.gradient_effect = gradient_effect # Large value means large changes in the current Q value with the new step
+        # IF its high, it means high changes, and if its low it means there are less changes
+        self.epsilon = epsilon
+        self.relative_reward_rating = relative_reward_rating
+        self.board = board
+
+    def get_Q_value(self, state, action):
+        key = (state, action)
+        return self.Q.setdefault(key, 0.0)
+
+    def choose_action(self, state, available_moves):
+        return (
+            None if not available_moves
+            else self.explore(available_moves) if random.uniform(0, 1) < self.epsilon
+            else self.exploit(state, available_moves)
+        )
+
+    def explore(self, available_moves):
+        return random.choice(available_moves)
+
+    def exploit(self, state, available_moves):
+        Q_values = np.array([self.get_Q_value(state, action) for action in available_moves])
+        max_Q = np.max(Q_values)
+        best_moves = np.where(Q_values == max_Q)[0]
+        return available_moves[np.random.choice(best_moves)]
+
+    def update_Q_value(self, state, action, reward, next_state):
+        key = (state, action)
+        current_Q = self.get_Q_value(state, action)  # Get the current Q-value 
+        next_Q_values = list(map(lambda a: self.get_Q_value(next_state, a), self.board.available_moves()))
+        max_next_Q = max(next_Q_values) if next_Q_values else 0.0
+        updated_Q = current_Q + self.gradient_effect * (reward + self.relative_reward_rating * max_next_Q - current_Q)
+        self.Q[key] = updated_Q  # Update the Q-value
+
+
+class SARSAgent:
+    def __init__(self, gradient_effect, epsilon, relative_reward_rating, board):
+        self.Q = {}
+        self.gradient_effect = gradient_effect
+        self.epsilon = epsilon
+        self.relative_reward_rating = relative_reward_rating
+        self.board = board
+        self.prev_state = None
+        self.prev_action = None
+
+    def get_Q_value(self, state, action):
+        key = (state, action)
+        return self.Q.setdefault(key, 0.0)
+
+    def choose_action(self, state, available_moves):
+        return (
+            None if not available_moves
+            else self.explore(available_moves) if random.uniform(0, 1) < self.epsilon
+            else self.exploit(state, available_moves)
+        )
+    def explore(self, available_moves):
+        return random.choice(available_moves)
+
+    def exploit(self, state, available_moves):
+        Q_values = np.array([self.get_Q_value(state, action) for action in available_moves])
+        max_Q = np.max(Q_values)
+        best_moves = np.where(Q_values == max_Q)[0]
+        return available_moves[np.random.choice(best_moves)]
+
+    def update_Q_value(self, state, action, reward, next_state, next_action):
+        prev_Q = self.get_Q_value(state, action)
+        next_Q = self.get_Q_value(next_state, next_action)
+        updated_Q = prev_Q + self.gradient_effect * (reward + self.relative_reward_rating * next_Q - prev_Q)
+        key = (state, action)
+        self.Q[key] = updated_Q
+
+
+    
+class QLearningMCTSHybrid:
+    def __init__(self, q_learning_params, mcts_params):
+        self.q_learning_params = q_learning_params
+        self.mcts_params = mcts_params
+        self.q_learning_agent = QLearningAgent(
+            gradient_effect=q_learning_params["gradient_effect"],
+            epsilon=q_learning_params["epsilon"],
+            relative_reward_rating=q_learning_params["relative_reward_rating"],
+            board=TicTacToeBoard(size)  # we use the provided size for the board
+        )
+        self.mcts_agent = TicTacToeMCTSAlgorithm(**mcts_params)
+        self.current_agent = self.q_learning_agent  # Initialize current_agent to Q-learning agent
+
+    def choose_action(self, state, available_moves):
+        if state is not None:
+            if self.current_agent is not None:
+                action = self.current_agent.choose_action(state, available_moves)
+                if action is not None:
+                    return action
+        
+        return random.choice(available_moves) if available_moves else None
+
+    def update_Q_value(self, state, action, reward, next_state):
+        self.q_learning_agent.update_Q_value(state, action, reward, next_state)
+
+    def switch_agent(self):
+        if self.current_agent == self.q_learning_agent:
+            self.current_agent = self.mcts_agent
+        else:
+            self.current_agent = self.q_learning_agent
+            
+
+class Game:
+    def __init__(self, size, board, player, bot, algorithm):
+        self.size = size
+        self.board = board
+        self.player = player
+        self.algorithm = algorithm
+        self.bot = bot
+
+    def train_bot(self, num_episodes, alpha, epsilon, discount_factor):
+        agent = QLearningAgent(alpha, epsilon, discount_factor, self.board)
+
+        for _ in range(num_episodes):
+            self.play_single_episode(agent)
+            self.board.reset_board()
+
+    def train_sarsa_bot(self, num_episodes, alpha, epsilon, discount_factor):
+        agent = SARSAgent(alpha, epsilon, discount_factor, self.board)
+
+        for _ in range(num_episodes):
+            self.play_single_episode_sarsa(agent)
+            self.board.reset_board()
+            
+    def train_hybrid_bot(self, num_episodes, gradient_effect_q, epsilon_q, relative_reward_rating_q, num_simulations_mcts):
+        hybrid_agent = QLearningMCTSHybrid(
+            q_learning_params={ "gradient_effect": gradient_effect_q, "epsilon": epsilon_q, "relative_reward_rating": relative_reward_rating_q, "board": self.board}, mcts_params={"num_simulations": num_simulations_mcts})
+
+
+        for _ in range(num_episodes):
+            self.play_single_episode_hybrid(hybrid_agent)
+            self.board.reset_board()
+
+    def play_single_episode(self, agent):
+        state = self.board.current_state()
+
+        while not self.board.check_for_win(self.player.letter):
+            available_moves = self.board.available_moves()
+            action = agent.choose_action(state, available_moves)
+            next_state = self.board.insert_letter(self.player.letter, action)
+            reward = 1 if self.board.check_for_win(self.player.letter) else 0
+            agent.update_Q_value(state, action, reward, next_state)
+            state = next_state
+            
+    def play_single_episode_sarsa(self, agent):
+        state = self.board.current_state()
+        action = agent.choose_action(state, self.board.available_moves())
+
+        while not self.board.check_for_win(self.player.letter):
+            next_state = self.board.insert_letter(self.player.letter, action)
+            reward = 1 if self.board.check_for_win(self.player.letter) else 0
+            next_action = agent.choose_action(next_state, self.board.available_moves())
+            agent.update_Q_value(state, action, reward, next_state, next_action)
+            state = next_state
+            action = next_action
+    
+
+    def play_single_episode_hybrid(self, hybrid_agent):
+        while not self.board.check_for_win(self.player.letter):
+            state = self.board.current_state()
+            available_moves = self.board.available_moves()
+
+            if not available_moves:
+                print("No available moves left. It's a draw!")
+                break  # Exit the loop if there are no available moves
+
+            current_player = self.board.current_player()
+            action = hybrid_agent.choose_action(state, available_moves)
+            next_state = self.board.insert_letter(current_player, action)
+            reward = 1 if self.board.check_for_win(current_player) else 0
+            hybrid_agent.update_Q_value(state, action, reward, next_state)
+            hybrid_agent.switch_agent()
+
+
+
+
+    def test_bot(self, agent, num_games):
+        num_wins = 0
+        for _ in range(num_games):
+            if self.play():
+                num_wins += 1
+        win_percentage = (num_wins / num_games) * 100
+        return win_percentage
+
+    def play(self):
+        self.board.reset_board()
+        while True:
+            self.board.print_board()
+            current_player = self.board.current_player()
+
+            if current_player == self.player.letter:
+                self.player.make_move(self.board)
+            else:
+                self.bot.make_move(self.board)
+
+            if self.board.check_for_win(self.player.letter):
+                self.board.print_board()
+                print('-------------------------')
+                print("FINAL WINNER OF TIC TAC TOE TOURNAMENT")
+                print('is            YOU!')
+                print('-------------------------')
+                return True
+
+            if self.board.check_draw():
+                self.board.print_board()
+                print('Draw!')
+                return False
+
+            # Check if the bot wins
+            if self.board.check_for_win(self.bot.letter):
+                self.board.print_board()
+                print('-------------------------')
+                print("FINAL WINNER OF TIC TAC TOE TOURNAMENT")
+                print('is          Bot!')
+                print('-------------------------')
+                return True
